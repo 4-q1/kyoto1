@@ -2,107 +2,71 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>京都観光プランナー</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>京都観光最適化</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    label, select, input { display: block; margin: 1rem 0; }
+    button { padding: 0.5rem 1rem; }
+    .result { margin-top: 2rem; }
+  </style>
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-6">
+<body>
+  <h1>京都観光プラン最適化</h1>
 
-  <div class="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-6">
-    <h1 class="text-2xl font-bold mb-4 text-center">京都観光プランナー</h1>
+  <label for="days">日数を選択:</label>
+  <select id="days">
+    <option value="1">1日</option>
+    <option value="2">2日</option>
+    <option value="3">3日</option>
+  </select>
 
-    <form id="planForm" class="space-y-4">
-      <div>
-        <label class="block font-medium mb-1">旅行日数（日）</label>
-        <input type="number" id="days" name="days" min="1" class="w-full p-2 border rounded" required>
-      </div>
+  <label for="spots">訪問したい場所を選択（複数可）:</label>
+  <select id="spots" multiple size="10">
+  </select>
 
-      <div>
-        <label class="block font-medium mb-1">行きたいスポット（カンマ区切り）</label>
-        <input type="text" id="spots" name="spots" placeholder="例：清水寺, 金閣寺, 伏見稲荷" class="w-full p-2 border rounded" required>
-      </div>
+  <button onclick="submitForm()">最適化プランを取得</button>
 
-      <div>
-        <label class="block font-medium mb-1">1日の観光時間（分）</label>
-        <input type="number" id="daily_time_limit" name="daily_time_limit" min="1" class="w-full p-2 border rounded" required>
-      </div>
-
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl transition">
-        プランを作成する
-      </button>
-    </form>
-
-    <div id="loading" class="mt-4 text-center hidden">
-      <span class="text-blue-600 font-medium">プランを計算中です...</span>
-    </div>
-
-    <div id="result" class="mt-6 space-y-4 hidden"></div>
-
-    <div id="error" class="mt-4 text-red-600 font-semibold hidden text-center"></div>
-  </div>
+  <div class="result" id="result"></div>
 
   <script>
-    const form = document.getElementById('planForm');
-    const resultDiv = document.getElementById('result');
-    const errorDiv = document.getElementById('error');
-    const loadingDiv = document.getElementById('loading');
+    const spots = [
+      {"name": "京都駅"}, {"name": "清水寺"}, {"name": "伏見稲荷大社"},
+      {"name": "金閣寺"}, {"name": "竹林の小径"}, {"name": "平等院"},
+      {"name": "四条大橋"}, {"name": "安井金比羅宮"}, {"name": "蓮華王院三十三間堂"},
+      {"name": "貴船神社"}, {"name": "高台寺"}, {"name": "産寧坂"}, {"name": "銀閣寺"},
+      {"name": "八坂神社"}, {"name": "六波羅蜜寺"}, {"name": "京都御苑"}, {"name": "京都水族館"},
+      {"name": "天龍寺"}, {"name": "龍安寺"}, {"name": "御金神社"}, {"name": "京都府立植物園"},
+      {"name": "錦市場"}, {"name": "東福寺"}, {"name": "保津川下り"}, {"name": "京都国際マンガミュージアム"},
+      {"name": "嵯峨野トロッコ列車"}, {"name": "金剛寺八坂庚申堂"}, {"name": "渡月橋"},
+      {"name": "京都タワー"}, {"name": "南禅寺"}, {"name": "壬生寺"}, {"name": "花見小路通"},
+      {"name": "漢字ミュージアム"}, {"name": "京都国立近代美術館"}
+    ];
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      resultDiv.classList.add('hidden');
-      errorDiv.classList.add('hidden');
-      loadingDiv.classList.remove('hidden');
-
-      const days = parseInt(document.getElementById('days').value);
-      const spotList = document.getElementById('spots').value.split(',').map(s => s.trim()).filter(Boolean);
-      const dailyTimeLimit = parseInt(document.getElementById('daily_time_limit').value);
-
-      const payload = {
-        days: days,
-        spots: spotList,
-        daily_time_limit: dailyTimeLimit
-      };
-
-      try {
-        const response = await fetch("https://kotokyoto.onrender.com/plan", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) throw new Error("APIからの応答が不正です");
-
-        const data = await response.json();
-        renderResult(data);
-      } catch (err) {
-        errorDiv.textContent = `エラーが発生しました: ${err.message}`;
-        errorDiv.classList.remove('hidden');
-      } finally {
-        loadingDiv.classList.add('hidden');
-      }
+    const select = document.getElementById("spots");
+    spots.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s.name;
+      opt.textContent = s.name;
+      select.appendChild(opt);
     });
 
-    function renderResult(data) {
-      resultDiv.innerHTML = '';
+    function submitForm() {
+      const days = document.getElementById("days").value;
+      const selectedSpots = Array.from(select.selectedOptions).map(o => o.value);
 
-      if (!data || !data.plan || data.plan.length === 0) {
-        resultDiv.innerHTML = '<p>結果が見つかりませんでした。</p>';
-      } else {
-        data.plan.forEach((dayPlan, idx) => {
-          const section = document.createElement('div');
-          section.innerHTML = `
-            <h2 class="text-lg font-bold mb-2">Day ${idx + 1}</h2>
-            <ul class="list-disc pl-5 space-y-1">
-              ${dayPlan.map(s => `<li>${s}</li>`).join('')}
-            </ul>
-          `;
-          resultDiv.appendChild(section);
-        });
-      }
-
-      resultDiv.classList.remove('hidden');
+      fetch('https://kotokyoto.onrender.com/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: Number(days), selected_spots: selectedSpots })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const resDiv = document.getElementById("result");
+        resDiv.innerHTML = "<h2>最適化結果</h2><pre>" + JSON.stringify(data, null, 2) + "</pre>";
+      })
+      .catch(err => {
+        document.getElementById("result").textContent = "エラーが発生しました: " + err.message;
+      });
     }
   </script>
 </body>
