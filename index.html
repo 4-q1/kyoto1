@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>京都観光プランナー</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-6">
+
+  <div class="w-full max-w-2xl bg-white shadow-xl rounded-2xl p-6">
+    <h1 class="text-2xl font-bold mb-4 text-center">京都観光プランナー</h1>
+
+    <form id="planForm" class="space-y-4">
+      <div>
+        <label class="block font-medium mb-1">旅行日数（日）</label>
+        <input type="number" id="days" name="days" min="1" class="w-full p-2 border rounded" required>
+      </div>
+
+      <div>
+        <label class="block font-medium mb-1">行きたいスポット（カンマ区切り）</label>
+        <input type="text" id="spots" name="spots" placeholder="例：清水寺, 金閣寺, 伏見稲荷" class="w-full p-2 border rounded" required>
+      </div>
+
+      <div>
+        <label class="block font-medium mb-1">1日の観光時間（分）</label>
+        <input type="number" id="daily_time_limit" name="daily_time_limit" min="1" class="w-full p-2 border rounded" required>
+      </div>
+
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl transition">
+        プランを作成する
+      </button>
+    </form>
+
+    <div id="loading" class="mt-4 text-center hidden">
+      <span class="text-blue-600 font-medium">プランを計算中です...</span>
+    </div>
+
+    <div id="result" class="mt-6 space-y-4 hidden"></div>
+
+    <div id="error" class="mt-4 text-red-600 font-semibold hidden text-center"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('planForm');
+    const resultDiv = document.getElementById('result');
+    const errorDiv = document.getElementById('error');
+    const loadingDiv = document.getElementById('loading');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      resultDiv.classList.add('hidden');
+      errorDiv.classList.add('hidden');
+      loadingDiv.classList.remove('hidden');
+
+      const days = parseInt(document.getElementById('days').value);
+      const spotList = document.getElementById('spots').value.split(',').map(s => s.trim()).filter(Boolean);
+      const dailyTimeLimit = parseInt(document.getElementById('daily_time_limit').value);
+
+      const payload = {
+        days: days,
+        spots: spotList,
+        daily_time_limit: dailyTimeLimit
+      };
+
+      try {
+        const response = await fetch("https://kotokyoto.onrender.com/plan", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error("APIからの応答が不正です");
+
+        const data = await response.json();
+        renderResult(data);
+      } catch (err) {
+        errorDiv.textContent = `エラーが発生しました: ${err.message}`;
+        errorDiv.classList.remove('hidden');
+      } finally {
+        loadingDiv.classList.add('hidden');
+      }
+    });
+
+    function renderResult(data) {
+      resultDiv.innerHTML = '';
+
+      if (!data || !data.plan || data.plan.length === 0) {
+        resultDiv.innerHTML = '<p>結果が見つかりませんでした。</p>';
+      } else {
+        data.plan.forEach((dayPlan, idx) => {
+          const section = document.createElement('div');
+          section.innerHTML = `
+            <h2 class="text-lg font-bold mb-2">Day ${idx + 1}</h2>
+            <ul class="list-disc pl-5 space-y-1">
+              ${dayPlan.map(s => `<li>${s}</li>`).join('')}
+            </ul>
+          `;
+          resultDiv.appendChild(section);
+        });
+      }
+
+      resultDiv.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
