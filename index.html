@@ -1,72 +1,88 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>京都観光最適化</title>
+  <meta charset="UTF-8">
+  <title>京都観光プラン最適化</title>
   <style>
-    body { font-family: sans-serif; margin: 2rem; }
-    label, select, input { display: block; margin: 1rem 0; }
-    button { padding: 0.5rem 1rem; }
-    .result { margin-top: 2rem; }
+    body { font-family: sans-serif; padding: 2rem; background: #fdfdfd; }
+    h1 { color: #444; }
+    label, select, input { margin: 0.5rem 0; display: block; }
+    .day-block { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; }
+    pre { background: #eee; padding: 1rem; white-space: pre-wrap; }
   </style>
 </head>
 <body>
-  <h1>京都観光プラン最適化</h1>
+  <h1>京都観光ルート最適化</h1>
 
-  <label for="days">日数を選択:</label>
-  <select id="days">
-    <option value="1">1日</option>
-    <option value="2">2日</option>
-    <option value="3">3日</option>
-  </select>
+  <label for="days">旅行日数:</label>
+  <input type="number" id="days" name="days" min="1" max="10" value="2">
 
-  <label for="spots">訪問したい場所を選択（複数可）:</label>
-  <select id="spots" multiple size="10">
-  </select>
+  <div id="dayInputs"></div>
 
-  <button onclick="submitForm()">最適化プランを取得</button>
+  <button onclick="submitPlan()">送信</button>
 
-  <div class="result" id="result"></div>
+  <h2>結果:</h2>
+  <pre id="resultArea"></pre>
 
   <script>
-    const spots = [
-      {"name": "京都駅"}, {"name": "清水寺"}, {"name": "伏見稲荷大社"},
-      {"name": "金閣寺"}, {"name": "竹林の小径"}, {"name": "平等院"},
-      {"name": "四条大橋"}, {"name": "安井金比羅宮"}, {"name": "蓮華王院三十三間堂"},
-      {"name": "貴船神社"}, {"name": "高台寺"}, {"name": "産寧坂"}, {"name": "銀閣寺"},
-      {"name": "八坂神社"}, {"name": "六波羅蜜寺"}, {"name": "京都御苑"}, {"name": "京都水族館"},
-      {"name": "天龍寺"}, {"name": "龍安寺"}, {"name": "御金神社"}, {"name": "京都府立植物園"},
-      {"name": "錦市場"}, {"name": "東福寺"}, {"name": "保津川下り"}, {"name": "京都国際マンガミュージアム"},
-      {"name": "嵯峨野トロッコ列車"}, {"name": "金剛寺八坂庚申堂"}, {"name": "渡月橋"},
-      {"name": "京都タワー"}, {"name": "南禅寺"}, {"name": "壬生寺"}, {"name": "花見小路通"},
-      {"name": "漢字ミュージアム"}, {"name": "京都国立近代美術館"}
+    const placeList = [
+      "京都駅", "清水寺", "伏見稲荷大社", "金閣寺", "竹林の小径", "平等院", "四条大橋", "安井金比羅宮", "蓮華王院三十三間堂",
+      "貴船神社", "高台寺", "産寧坂", "銀閣寺", "八坂神社", "六波羅蜜寺", "京都御苑", "京都水族館", "天龍寺", "龍安寺",
+      "御金神社", "京都府立植物園", "錦市場", "東福寺", "保津川下り", "京都国際マンガミュージアム", "嵯峨野トロッコ列車",
+      "金剛寺八坂庚申堂", "渡月橋", "京都タワー", "南禅寺", "壬生寺", "花見小路通", "漢字ミュージアム", "京都国立近代美術館"
     ];
 
-    const select = document.getElementById("spots");
-    spots.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.name;
-      opt.textContent = s.name;
-      select.appendChild(opt);
-    });
+    const dayInputs = document.getElementById("dayInputs");
+    const daysInput = document.getElementById("days");
 
-    function submitForm() {
-      const days = document.getElementById("days").value;
-      const selectedSpots = Array.from(select.selectedOptions).map(o => o.value);
+    daysInput.addEventListener("input", renderDayInputs);
+    renderDayInputs();
 
-      fetch('https://kotokyoto.onrender.com/optimize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days: Number(days), selected_spots: selectedSpots })
-      })
-      .then(res => res.json())
-      .then(data => {
-        const resDiv = document.getElementById("result");
-        resDiv.innerHTML = "<h2>最適化結果</h2><pre>" + JSON.stringify(data, null, 2) + "</pre>";
-      })
-      .catch(err => {
-        document.getElementById("result").textContent = "エラーが発生しました: " + err.message;
-      });
+    function renderDayInputs() {
+      const days = parseInt(daysInput.value);
+      dayInputs.innerHTML = "";
+
+      for (let i = 0; i < days; i++) {
+        const block = document.createElement("div");
+        block.className = "day-block";
+        block.innerHTML = `
+          <h3>Day ${i + 1}</h3>
+          <label>制限時間（分）:
+            <input type="number" class="limit" value="480">
+          </label>
+          <label>最終目的地:
+            <select class="destination">${placeList.map(p => `<option>${p}</option>`).join("")}</select>
+          </label>
+        `;
+        dayInputs.appendChild(block);
+      }
+    }
+
+    async function submitPlan() {
+      const days = parseInt(daysInput.value);
+      const limits = Array.from(document.querySelectorAll(".limit")).map(el => parseInt(el.value));
+      const via = Array.from(document.querySelectorAll(".destination")).map(el => el.value);
+
+      const body = { days, time_limits: limits, via };
+
+      const resArea = document.getElementById("resultArea");
+      resArea.textContent = "送信中...";
+
+      try {
+        const res = await fetch("https://kotokyoto.onrender.com/optimize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        if (!res.ok) throw new Error("APIエラー");
+
+        const data = await res.json();
+        resArea.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resArea.textContent = "エラー: " + err.message;
+      }
     }
   </script>
 </body>
