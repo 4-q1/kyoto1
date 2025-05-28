@@ -4,26 +4,110 @@
   <meta charset="UTF-8">
   <title>京都観光プラン最適化</title>
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #fdfdfd; }
-    h1 { color: #444; }
-    label, select, input { margin: 0.5rem 0; display: block; }
-    .day-block { border: 1px solid #ccc; padding: 1rem; margin: 1rem 0; }
-    button { margin-top: 1rem; padding: 0.5rem 1rem; }
-    pre { background: #eee; padding: 1rem; white-space: pre-wrap; }
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 3rem auto;
+      padding: 2rem;
+      background-color: #fff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+      border-radius: 12px;
+    }
+
+    h1, h2 {
+      color: #2c3e50;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 0.3rem;
+    }
+
+    label {
+      font-weight: 600;
+      margin-top: 1rem;
+      display: block;
+    }
+
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.6rem;
+      font-size: 1rem;
+      margin-top: 0.3rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background-color: #fdfdfd;
+    }
+
+    .day-block {
+      background-color: #f9fafc;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      margin: 1.5rem 0;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    }
+
+    .day-block h3 {
+      margin-top: 0;
+      color: #34495e;
+    }
+
+    button {
+      display: inline-block;
+      padding: 0.7rem 1.5rem;
+      font-size: 1rem;
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    pre#resultArea {
+      background-color: #eef3f7;
+      border: 1px solid #ccd6dd;
+      padding: 1rem;
+      border-radius: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin-top: 1rem;
+      font-family: Consolas, monospace;
+    }
   </style>
 </head>
 <body>
-  <h1>京都観光ルート最適化</h1>
+  <div class="container">
+    <h1>京都観光ルート最適化</h1>
 
-  <label for="days">旅行日数:</label>
-  <input type="number" id="days" name="days" min="1" max="10" value="2">
+    <label for="days">旅行日数:</label>
+    <input type="number" id="days" name="days" min="1" max="10" value="2">
 
-  <div id="dayInputs"></div>
+    <div id="dayInputs"></div>
 
-  <button onclick="submitPlan()">送信</button>
+    <button onclick="submitPlan()">送信</button>
 
-  <h2>結果:</h2>
-  <pre id="resultArea"></pre>
+    <h2>結果:</h2>
+    <pre id="resultArea">ここに結果が表示されます。</pre>
+  </div>
 
   <script>
     const placeList = [
@@ -60,30 +144,47 @@
     }
 
     async function submitPlan() {
-      const days = parseInt(daysInput.value);
-      const limits = Array.from(document.querySelectorAll(".limit")).map(el => parseInt(el.value));
-      const via = Array.from(document.querySelectorAll(".destination")).map(el => el.value);
+  const days = parseInt(daysInput.value);
+  const limits = Array.from(document.querySelectorAll(".limit")).map(el => parseInt(el.value));
+  const via = Array.from(document.querySelectorAll(".destination")).map(el => el.value);
 
-      const body = { days, time_limits: limits, via };
+  const body = { days, time_limits: limits, via };
+  const resArea = document.getElementById("resultArea");
+  resArea.textContent = "送信中...";
 
-      const resArea = document.getElementById("resultArea");
-      resArea.textContent = "送信中...";
+  try {
+    const res = await fetch("https://referral-spell-marie-polls.trycloudflare.com/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
 
-      try {
-        const res = await fetch("https://referral-spell-marie-polls.trycloudflare.com/optimize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
+    if (!res.ok) throw new Error("APIエラー");
 
-        if (!res.ok) throw new Error("APIエラー");
-
-        const data = await res.json();
-        resArea.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        resArea.textContent = "エラー: " + err.message;
-      }
+    const data = await res.json();
+    if (!data.plans) {
+      resArea.textContent = "有効なプランが返されませんでした。";
+      return;
     }
+
+    let text = "以下が最適なルートです：\n\n";
+
+    data.plans.forEach(plan => {
+      text += `【${plan.day}日目】\n`;
+      text += `訪問順: ${plan.route.join(" → ")}\n`;
+      text += `所要時間の目安: 約${plan.total_time}分\n\n`;
+    });
+
+    if (data.message) {
+      text += `補足: ${data.message}`;
+    }
+
+    resArea.textContent = text;
+  } catch (err) {
+    resArea.textContent = "エラー: " + err.message;
+  }
+}
+
   </script>
 </body>
 </html>
