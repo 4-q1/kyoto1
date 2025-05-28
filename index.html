@@ -144,47 +144,49 @@
     }
 
     async function submitPlan() {
-  const days = parseInt(daysInput.value);
-  const limits = Array.from(document.querySelectorAll(".limit")).map(el => parseInt(el.value));
-  const via = Array.from(document.querySelectorAll(".destination")).map(el => el.value);
+      const days = parseInt(daysInput.value);
+      const limits = Array.from(document.querySelectorAll(".limit")).map(el => parseInt(el.value));
+      const via = Array.from(document.querySelectorAll(".destination")).map(el => el.value);
 
-  const body = { days, time_limits: limits, via };
-  const resArea = document.getElementById("resultArea");
-  resArea.textContent = "送信中...";
+      const body = { days, time_limits: limits, via };
+      const resArea = document.getElementById("resultArea");
+      resArea.textContent = "送信中...";
 
-  try {
-    const res = await fetch("https://posting-rl-hosting-eggs.trycloudflare.com/optimize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+      try {
+        const res = await fetch("https://posting-rl-hosting-eggs.trycloudflare.com/optimize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
 
-    if (!res.ok) throw new Error("APIエラー");
+        if (!res.ok) throw new Error("APIエラー");
 
-    const data = await res.json();
-    if (!data.plans) {
-      resArea.textContent = "有効なプランが返されませんでした。";
-      return;
+        const data = await res.json();
+        if (!Array.isArray(data)) {
+          resArea.textContent = "有効なデータ形式ではありません。";
+          return;
+        }
+
+        let text = "結果：\n\n";
+
+        data.forEach(plan => {
+          if (plan.status !== "success") {
+            text += `【${plan.day}日目】ルート取得に失敗しました。\n\n`;
+            return;
+          }
+
+          const decodedRoute = decodeURIComponent(plan.route);
+          text += `【${plan.day}日目】\n`;
+          text += `訪問順: ${decodedRoute}\n`;
+          text += `所要時間の目安: 約${plan.time_used}分\n`;
+          text += `スコア: ${plan.score}\n\n`;
+        });
+
+        resArea.textContent = text;
+      } catch (err) {
+        resArea.textContent = "エラー: " + err.message;
+      }
     }
-
-    let text = "以下が最適なルートです：\n\n";
-
-    data.plans.forEach(plan => {
-      text += `【${plan.day}日目】\n`;
-      text += `訪問順: ${plan.route.join(" → ")}\n`;
-      text += `所要時間の目安: 約${plan.total_time}分\n\n`;
-    });
-
-    if (data.message) {
-      text += `補足: ${data.message}`;
-    }
-
-    resArea.textContent = text;
-  } catch (err) {
-    resArea.textContent = "エラー: " + err.message;
-  }
-}
-
   </script>
 </body>
 </html>
